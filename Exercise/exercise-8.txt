@@ -1,0 +1,26 @@
+CSC324 2020 Fall - Exercise 8
+Due Dec 9 Wednesday 9PM
+
+This is an exercise in Haskell lazy evaluation.
+
+The following definitions are given:
+
+```
+f a [] = [a]
+f a (x:xs) = a : f (a+x) xs
+
+nth 0 (x:_) = x
+nth n (_:xs) = nth (n-1) xs
+-- other cases not needed in this question.
+```
+
+Show the lazy evaluation steps of the following until you get the answer (an
+integer).
+
+   nth 1 (f 1 (2 : 4 : 6 : 8 : []))
+-> nth 1 (1 : (f (1 + 2) (4 : 6 : 8 : [])))
+-> nth (1 - 1) (f (1 + 2) (4 : 6 : 8 : []))
+-> nth 0 (f (1 + 2) (4 : 6 : 8 : []))
+-> nth 0 ((1 + 2) : (f ((1 + 2) + 4) (6 : 8 : [])))
+-> (1 + 2)
+-> 3

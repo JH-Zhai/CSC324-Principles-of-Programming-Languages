@@ -1,0 +1,179 @@
+CSC324 2020 Fall - Exercise 6.
+
+Due Sunday November 8, 9PM
+
+
+This exercise practices working out what shift/reset does.
+
+To evaluate a shift inside a reset:
+
+   (reset ... (shift fn-name innercode) ...)
+-> (reset innercode)
+   where fn-name = (λ (a) (reset ... a ...))
+
+This semi-informal notation may make it clearer what you can do next, and
+without too much clutter.
+
+In later steps, you may drop the "where fn-name = ..." when you no longer need
+it.
+
+If you don't run into a shift that needs evaluating, e.g., if expr evaluates to
+value:
+
+   (reset expr)
+-> (reset value)
+-> value
+
+Lastly, reset allows multiple expressions, e.g.,
+
+   (reset expr1 expr2 ...)
+
+What to do: Evaluate expr1. If you run into a shift, use the shift rule
+above. If not, finish evaluating expr1, then discard the value and move on to
+
+   (reset expr2 ...)
+
+Which steps you must show, and which steps you may skip:
+
+* The use of the above 3 rules must be shown. They are the main purpose of this
+  exercise. Plus, you need the practice.
+
+* Show the step when you call fn-name with a parameter. (Usually it contains
+  further resets and shifts, so it's a good idea to be careful.)
+
+* You can jump steps otherwise, they are the easy ones anyway, e.g., this is OK:
+
+     (reset (+ 10 (* 2 3)))
+  -> (reset 16)
+  -> 16
+
+Here is an example:
+
+   (list "hello"
+         (reset (+ 100 ((shift k (list (k 3) (k 7))) 10)))
+         "hi")
+-> (list "hello"
+         (reset (list (k 3) (k 7)))
+   with k = (λ (a) (reset (+ 100 a 10)))
+         "hi")
+-> (list "hello"
+         (reset (list (reset (+ 100 3 10)) (reset (+ 100 7 10))))
+         "hi")
+-> (list "hello"
+         (reset (list (reset 113) (reset 117)))
+         "hi")
+-> (list "hello"
+         (reset (list 113 117))
+         "hi")
+-> (list "hello"
+         (list 113 117)
+         "hi")
+
+The definitions and expressions in this exercise are also in exercise-6-code.rkt,
+along with test cases, so you can play with them if you like.
+
+
+
+Question 1
+----------
+
+Given these definitions:
+
+(define (green? person)
+  (string=? person "Grinch"))
+
+(define someone-green
+  (reset (green? (shift k (or (k "Albert")
+                              (k "Grinch"))))))
+
+Evaluate someone-green.
+
+Answer:
+
+	someone-green
+
+->	(reset (green? (shift k (or (k "Albert") (k "Grinch")))))
+
+->	(reset (define (k a) (reset (green? a))) (or (k "Albert") (k "Grinch")))
+
+->	(reset (define (k a) (reset (green? a))) (or (reset (green? "Albert")) (reset (green? "Grinch"))))
+
+->	(reset (define (k a) (reset (green? a))) (or #f #t))
+
+->	(reset (or #f #t))
+
+->	(or #f #t)
+
+->	#t
+
+
+
+Question 2
+----------
+
+This question works out how shift/reset achieves yield (as in the
+lectures). Given this definition:
+
+(define lzlist
+  (reset (shift f (list 3 (λ () (f ""))))
+         (shift g (list 1 (λ () (g ""))))
+         '())
+  )
+
+## Question 2(a)
+
+Evaluate lzlist. (Do this once so you can simply cite the result in 2(b) and
+2(c).) Note that the result is a lazy list.
+
+Answer:
+
+	lzlist
+
+-> 	(reset (shift f (list 3 (λ () (f "")))) (shift g (list 1 (λ () (g "")))) '())
+
+-> 	(reset (define (f a) (reset (shift g (list 1 (λ () (g "")))) '())) (list 3 (λ () (f ""))))
+
+-> 	(reset (define (f a) (reset (shift g (list 1 (λ () (g "")))) '())) (list 3 (λ () (reset (shift g (list 1 (λ () (g "")))) '()))))
+
+-> 	(reset (define (f a) (reset (shift g (list 1 (λ () (g "")))) '())) (list 3 (λ () (reset (define (g a) (reset '())) (list 1 (λ () (g "")))))))
+
+-> 	(reset (define (f a) (reset (shift g (list 1 (λ () (g "")))) '())) (list 3 (λ () (reset (define (g a) (reset '())) (list 1 (λ () (reset '())))))))
+
+-> 	(reset (list 3 (λ () (reset (define (g a) (reset '())) (list 1 (λ () (reset '())))))))
+
+-> 	(reset (list 3 (λ () (reset (list 1 (λ () (reset '())))))))
+
+-> 	(list 3 (λ () (list 1 (λ () '()))))
+
+
+## Question 2(b)
+
+Evaluate (first lzlist). Note that this asks for the 1st number in the lazy
+list. You may cite the result of 2(a) without repeating those steps.
+
+Answer:
+
+	(first lzlist)
+
+-> 	(first (list 3 (λ () (list 1 (λ () '())))))
+
+-> 	(first (list 3 (λ () (list 1 (λ () '())))))
+
+-> 	3
+
+
+## Question 2(c)
+
+Evaluate (first ((second lzlist))). Note that this asks for the 2nd number in
+the lazy list. You may cite the result of 2(a) without repeating those steps.
+
+Answer:
+	(first ((second lzlist)))
+
+->	(first ((second (list 3 (λ () (list 1 (λ () '())))))))
+
+->	(first ((λ () (list 1 (λ () '())))))
+
+->	(first (list 1 (λ () '())))
+
+->	1

@@ -1,0 +1,53 @@
+; line comment                          -- line comment
+
+#| block                                {- block
+   comment                                 comment
+|#                                      -}
+
+'()                                     []
+(list a b c)                            [a, b, c]
+(cons a (cons b (cons c '())))          a : b : c : []
+
+(λ (n) (+ n 1))                         \n -> n + 1
+
+(if (equal? x 0) foo bar)               if x == 0 then foo else bar
+
+(define (f x)                           f x | x < 0 = -1
+  (cond                                     | x > 2 = 1
+    [(< x 0) -1]                            | otherwise = 0
+    [(> x 2) 1]
+    [else 0]))
+
+(match expr                             case expr of
+  ['() 0]                                 [] -> 0
+  [(cons x _) x])                         x : _ -> x
+
+(define (g xs)                          g [] = 0
+  (match xs                             g (x : xt) = x + g xt
+    ['() 0]
+    [(cons x xt) (+ x (g xt))]))
+
+(define (h x)                           h x = h2 (x + z)
+  (define z (* 2 x))                      where
+  (define (h2 t) (* t z))                   z = 2 * x
+  (h2 (+ x z)))                             h2 t = t * z
+
+(letrec ([x foo]                        let x = foo
+         [y bar])                           y = bar
+  (h foo bar))                          in h foo bar
+
+
+Functions taking 2 parameters:
+
+(define (ds x y)                        ds x y = (x + y) * (x - y)
+  (* (+ x y) (- x y)))
+
+But there is a difference:
+
+* Haskell: "ds 4" is allowed, it means \y -> (4+y)*(4-y). In fact ds is this
+  nested lambda: \x -> \y -> (x + y) * (x - y).
+
+* Racket: "(ds 4)" is disallowed, ds is not a nested lambda. However,
+  "((curry ds) 4)" corresponds to Haskell's "ds 4".
+
+Similarly for functions taking more parameters.

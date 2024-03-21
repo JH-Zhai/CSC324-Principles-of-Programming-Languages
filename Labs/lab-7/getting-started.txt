@@ -1,0 +1,62 @@
+This lab gets you started with using Haskell.  Haskell will be covered and used
+in the remaining weeks of the course for topics better discussed under Haskell.
+
+The accompanied file racket-haskell.txt shows a syntactic correspondence from
+Racket to Haskell to get you started.
+
+The code file FixMe.hs is a simple piece of Haskell code, but it contains both
+syntax errors and bugs.  Your job is to find out what they are and fix them, so
+in the process you get the hang of Haskell coding.
+
+FixMe.hs is also available on the teaching labs as /u/trebla/FixMe.hs
+
+The popular compiler and REPL for Haskell is GHC.  Its REPL is "ghci" ("i" for
+"interactive").  This is available on the teaching lab computers, e.g., ssh to
+teach.cs.toronto.edu, then:
+
+```
+$ ghci
+GHCi, version 8.6.5: http://www.haskell.org/ghc/  :? for help
+Prelude> 
+```
+
+If you get "Command 'ghci' not found", the full path is /local/bin/ghci
+
+Normally you would not write code at the ghci prompt directly (can be done but
+doesn't scale).  Use your favourite editor on the code file(s), then go to ghci
+and use its ":load" command or ":reload", then test as you like. E.g.,
+
+```
+:load FixMe.hs
+```
+
+and later after you have edited FixMe.hs,
+
+```
+:reload
+```
+
+
+
+If you are interested in further details on Haskell, the
+[Haskell Wikibook](https://en.wikibooks.org/wiki/Haskell)
+is a good start.  For this lab, the sections "variables and functions" and
+"truth values" are more than enough.
+
+
+If you are interested in installing GHC on your own computer:
+
+* Linux x86-64: <https://www.haskell.org/ghcup/> and you will also need your
+  Linux distro's GMP "development" package, e.g., on Ubuntu it's libgmp-dev.
+  Please also carefully read and consider ghcup's messages.
+
+* macOS: <https://www.haskell.org/ghcup/>.  Please also carefully read and
+  consider ghcup's messages.
+
+* Windows: Either Chocolatey or Windows Subsystem for Linux (WSL).
+
+  * Chocolatey: [Install Chocolatey](https://chocolatey.org/install), and then
+    `choco install ghc`
+
+  * WSL: On Microsoft Store pick a version of Linux, e.g., Ubuntu.  Then act
+    like you have Linux x86-64.

@@ -1,0 +1,76 @@
+This question is about type inference.
+
+The types of these literals are given:
+
+   To infer the type of False: The answer is Bool.
+   To infer the type of True: The answer is Bool.
+
+
+[10 marks]
+
+Following the type inference algorithm in this course, show the steps of
+inferring the polymorphic type for
+
+    \c n -> c False (c True n)
+
+
+    Answer:
+
+    infer-poly {True, False :: Bool} \c n -> c False (c True n)
+
+        T := infer {True, False :: Bool} \c n -> c False (c True n)
+
+            create new unknowns uc un
+
+                T0 := infer {True, False::Bool, c::uc, n::un} (c False (c True n))
+
+                    T1 := infer {True, False::Bool, c::uc, n::un} c
+                        return uc
+                    T1 = uc
+
+                    T2 := infer {True, False::Bool, c::uc, n::un} False
+                        return Bool
+                    T2 = Bool
+
+                    T3 := infer {True, False::Bool, c::uc, n::un} (c True n)
+
+                        T4 := infer {True, False::Bool, c::uc, n::un} c
+                            return uc
+                        T4 = uc
+
+                        T5 := infer {True, False::Bool, c::uc, n::un} True
+                            return Bool
+                        T5 = Bool
+
+                        T6 := infer {True, False::Bool, c::uc, n::un} n
+                            return un
+                        T6 = un
+
+                        create new unknow u1
+                        unify T4 (T5 -> T6 -> u1)
+                            unify-intern uc (Bool -> un -> u1)
+
+                                                                                    update table:
+                                                                                    uc := Bool -> un -> u1
+
+                        return u1
+                    T3 = u1
+
+                    create new unknow u2
+                    unify T1 (T2 -> T3 -> u2)
+                        unify-intern uc (Bool -> u1 -> u2)
+
+                                                                                    update table:
+                                                                                    uc := Bool -> un -> un
+                                                                                    u1 := un
+                                                                                    u2 := un
+
+                    return apply-subt(u2) = un
+                T0 = un
+
+            return apply-subst(uc -> un -> T0) = (Bool -> un -> un) -> un -> un
+        T = (Bool -> un -> un) -> un -> un
+
+        for all unknowns not in type environment, generalize it
+        return ∀a. (Bool -> a -> a) -> a -> a
+

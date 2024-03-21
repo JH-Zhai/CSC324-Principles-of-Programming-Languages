@@ -1,0 +1,315 @@
+#lang racket
+
+#; Lazy Tree
+
+; CSC324 2020 Fall - Assginment 1
+; Due November 14, 9PM
+
+(provide lznode lznodeB prune dfs)
+(module+ test (require rackunit))
+
+
+; If we can have lazy lists, why not also lazy trees? >:)
+;
+; Lazy tree in this assignment: Each node contains a datum/value and finitely
+; many child subtrees. The laziness is in using a function/closure to delay
+; computing the chidlren, and there are two design choices here. Infinite lazy
+; trees (infinite in depth, not in degree for this assignment) are possible. So
+; I use these two representations (note it's a non-lazy, normal, finite list):
+
+; Representation A
+#; (list datum
+         (λ () (list expr-for-1st-child
+                     expr-for-2nd-child
+                     ...)))
+; If no child:
+#; (list datum (λ () '()))
+; In words, after the datum, one single function that returns the list of children.
+
+; Representation B
+#; (list datum
+         (λ () expr-for-1st-child)
+         (λ () expr-for-2nd-child)
+         ...)
+; If no child:
+#; (list datum)
+; In words, after the datum, list of functions, one function per child.
+
+; There are examples below.
+
+; Clearly no one wants to write those "λ ()" by hand all the time! So we need
+; you to define macros for them.  To illustrate what it should do:
+; If I want a lazy tree that has datum 1 at root, and two children:
+; * child #1 has datum 10, and 3 children:
+;   * datum 4, no child
+;   * datum 5, no child
+;   * datum 6, no child
+; * child #2 has datum 3, no child
+
+; Then I want to use macro "lznode" to write this:
+
+#; (lznode 1
+           (lznode 10
+                   (lznode 4)
+                   (lznode 5)
+                   (lznode 6))
+           (lznode 3))
+
+; which expands to representation A:
+
+#; (list 1 (λ () (list
+                  (list 10 (λ () (list
+                                  (list 4 (λ () '()))
+                                  (list 5 (λ () '()))
+                                  (list 6 (λ () '()))
+                                  )))
+                  (list 3 (λ () '())))))
+
+; Actually let me give it a name so you can use it for testing:
+
+(define albert-tree
+  (list 1 (λ () (list
+                 (list 10 (λ () (list
+                                 (list 4 (λ () '()))
+                                 (list 5 (λ () '()))
+                                 (list 6 (λ () '()))
+                                 )))
+                 (list 3 (λ () '()))))))
+
+; Or I want to use macro "lznodeB" to write this:
+
+#; (lznodeB 1
+            (lznodeB 10
+                     (lznodeB 4)
+                     (lznodeB 5)
+                     (lznodeB 6))
+            (lznodeB 3))
+
+; which expands to representation B: 
+
+#; (list 1
+         (λ () (list 10
+                     (λ () (list 4))
+                     (λ () (list 5))
+                     (λ () (list 6))))
+         (λ () (list 3)))
+
+; And I give it a name too:
+
+(define albert-treeB
+  (list 1
+        (λ () (list 10
+                    (λ () (list 4))
+                    (λ () (list 5))
+                    (λ () (list 6))))
+        (λ () (list 3))))
+
+; And of course we also need some utilitiy functions.
+
+; In most of this assignment, we will work with representation A, which is
+; easier for most coding. But 1(a) will have you implement macros for both A and
+; B.
+
+
+; Question 1(a): Implement the macros "lznode" and "lznodeB".
+
+(define-syntax lznode
+  (syntax-rules ()
+    [(_ datum)
+     (list datum (λ () '()))]
+    [(_ datum children ...)
+     (list datum
+           (λ () (list children ...)))]))
+
+(define-syntax lznodeB
+  (syntax-rules ()
+    [(_ datum)
+     (list datum)]
+    [(_ datum children ...)
+     (append (list datum) (map (λ (x) (λ  () x) ) (list children ...)))]))
+
+
+; In the remaining questions, we work with representation A. It's less annoying
+; to write code for.
+
+
+; Question 1(b): Prune a lazy tree at depth k. Return a non-lazy tree.
+; We represent non-lazy trees as nested Racket lists like this:
+#; (list datum
+         1st-child-subtree
+         2nd-child-subtree
+         ...
+         )
+; For example here is the non-lazy version of albert-tree:
+#; '(1
+     (10
+      (4)
+      (5)
+      (6))
+     (3))
+; There are more examples in the test cases.
+
+(define (prune tree k)
+  (cond [(or (= 0 k) (empty? ((second tree))) ) (list (first tree))]
+        [else (append (list (first tree)) (map (λ (t) (prune t (sub1 k) )) ((second tree))))]))
+
+; Delete #; when you're ready to run these tests.
+(module+ test
+  (check-equal? (prune albert-tree 0)
+                '(1))
+  (check-equal? (prune albert-tree 1)
+                '(1 (10) (3)))
+  (check-equal? (prune albert-tree 2)
+                '(1 (10 (4) (5) (6)) (3)))
+  ; Larger k than the actual tree depth should not hurt.
+  (check-equal? (prune albert-tree 3)
+                '(1 (10 (4) (5) (6)) (3))))
+
+
+; Question 1(c): Generate lazy tree from seed and "next" function.
+;
+; Explanation #1, mainly the inductive coding perspective:
+;
+; Suppose next is a function that maps a datum to a Racket finite list of data,
+; and seed is a datum.  Then (unfold-tree next seed) is the lazy tree such that:
+; * The root datum is seed.
+; * The root node has as many children as the length of (next seed)
+; * In fact, the ith child datum, call it d_i, is the ith item of (next seed)
+; * In fact^2, the ith child subtree is (unfold-tree next d_i)
+;
+; Explanation #2, mainly why we care:
+;
+; Pick a solitaire game, let's say on a Chess board a knight starts at a corner
+; and we try to make knight moves to get to to a certain destination. The board
+; has the knight only, no other pieces.  And we allow "repeating the same game
+; board state for the 2nd time, even the nth time".
+;
+; Then given a game board state (knight position for me), you know the possible
+; next states after picking one legal move.  You can code up a "knight-next"
+; function for this.  E.g., If the knight is at A2 now, I can move it to one of:
+; B4, C1, C3.  So (knight-next "A2") should return (list "B4" "C1" "C3"), or in
+; another order.
+;
+; Then (unfold knight-next "A1") is the whole lazy game tree starting from A1.
+
+(define (unfold-tree next seed)
+  (list seed
+        (λ ()(map (λ (subseed) (unfold-tree next subseed)) (next seed)))))
+
+; A simple example: If a node datum is n, then the node has left child with datum 2n,
+; right child with datum 2n+1.
+;
+; And I start with 1, so the whole tree should have 1 at root, next level 2 and
+; 3, next level 4, 5, 6, 7.
+
+; (Do you remember from 263 how you store a binary heap in an array? Which node
+; becomes which array index?)
+;
+; The test case after this definition uses prune to check; take a look.
+(define posint-tree
+  (unfold-tree (λ (n) (list (* 2 n) (add1 (* 2 n))))
+               1))
+
+; Delete #; when you're ready to run this test.
+(module+ test
+  (check-equal? (prune posint-tree 2)
+                '(1 (2 (4) (5)) (3 (6) (7)))))
+
+; Quesiton 2: Iterative deepening DFS for lazy trees.
+;
+; Iterative deepening DFS (or just iterative deepening) is an algorithm that
+; traverses a tree in DFS order, but outputs tree data in BFS order! Before I
+; demystify this fantastic stun, first why we care:
+;
+; If the tree is a game tree, and some nodes are "winning" nodes, and you want
+; to search for a shortest path from root to an earliest winning node, you've
+; got to search the nodes in BFS order.
+;
+; But BFS takes too much space for trees: the queue you use has size exponential
+; to the depth you're visiting. DFS takes much less space: stack size or
+; recursion depth is just the depth of the node you're visiting. So you would
+; like to walk like DFS.
+;
+; Here is the trick: Perform multiple passes of DFS. Every pass starts from the
+; root again.  But in pass #k, output only the data of the nodes at depth k, and
+; don't dive deeper than that. (Future passes will do that.) Hence, iterative
+; deepening = shallow DFS, then deeper DFS, then even deeper DFS...
+;
+; I said "output", but I don't mean printing or writing to a file. I want you to
+; build a lazy list.  This causes the coding to be a bit strange.
+;
+; Recall our lazy list looks like this:
+#; (list 1st-item (λ () expr-for-next-lazy-list))
+; I'll also use this terminology:
+#; (list 1st-item suffix-function)
+; "suffix function" refers to that kind of lambdas in a lazy list.
+
+; Implement this function for one pass of DFS. The parameters mean:
+;   tree:      lazy tree
+;   k:         dive to at most depth k. k=0 means you visit the root.
+;   suffix-fn: a suffix function
+; This function should return a new suffix function. If I call the new suffix
+; function, it gives a lazy list consisting of the data in the nodes at depth k
+; (k=0 means root), followed by the given suffix-fn. Example:
+#; (dfs posint-tree 1 suffix-fn)
+; Depth 1 has the numbers 2 and 3, so I should get a function equivalent to:
+#; (λ () (list 2 (λ () (list 3 suffix-fn))))
+; Yes this design is very strange, why not return the lazy list itself, why wrap
+; in one more λ?
+; Believe me, I have tried other designs, this is already the least awkward.
+
+(define (dfs tree k suffix-fn)
+  (cond
+    [(and (> k 0) (empty? ((second tree))))suffix-fn]
+    [(= k 0) (λ () (list (first tree) suffix-fn))]
+    [else(foldr (λ (t f) (dfs t (sub1 k) f)) suffix-fn ((second tree)))]
+    )
+  )
+
+; Delete #; when you're ready to test.
+(module+ test
+  ; n-of is defined near the end of this file.
+  (check-equal? (n-of ((dfs albert-tree 0 (λ () '()))) 100)
+                '(1))
+  (check-equal? (n-of ((dfs albert-tree 1 (λ () '()))) 100)
+                '(10 3))
+  (check-equal? (n-of ((dfs albert-tree 2 (λ () '()))) 100)
+                '(4 5 6))
+  (check-equal? (n-of ((dfs posint-tree 0 (λ () '()))) 100)
+                '(1))
+  (check-equal? (n-of ((dfs posint-tree 1 (λ () '()))) 100)
+                '(2 3))
+  (check-equal? (n-of ((dfs posint-tree 2 (λ () '()))) 100)
+                '(4 5 6 7)))
+
+; OK the rest is easy to explain, so they're provided.
+
+; (deepen tree k) is DFS from pass #k onwards; returns this lazy list: data at
+; depth k, then data at depth k+1, then... ad infinitum.  So just use dfs at
+; depth k, and the suffix is just recursively (deepen tree k+1).  The
+; technicality to watch out for is that:
+#; (dfs tree k (deepen tree (add1 k)))
+; is a bad idea: it would evaluate the recursive call first, which leads to
+; another recursive call...  it would never call dfs at any depth. We need to
+; delay it by slapping on another lambda:
+(define (deepen tree k)
+  ((dfs tree k (λ () (deepen tree (add1 k))))))
+; and that's the root cause of all the awkward design.
+
+; With that, the complete iterative deepening is simply to start from depth 0:
+(define (deepen* tree)
+  (deepen tree 0))
+
+; And here is a little integration test:
+; Delete #; when you're ready
+(module+ test
+  (check-equal? (n-of (deepen* posint-tree) 15)
+                (range 1 16)))
+
+
+; lazy list n-of for testing
+(define (n-of lz n)
+  (cond
+    [(zero? n) '()]
+    [(null? lz) '()]
+    [else (cons (first lz) (n-of ((second lz)) (sub1 n)))]))

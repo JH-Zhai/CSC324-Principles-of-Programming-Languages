@@ -1,0 +1,142 @@
+This question compares call-by-value (such as in Racket) and lazy evaluation
+(such as in Haskell).
+
+Although you will be asked summary questions (e.g., how much time does it take?
+why?) instead of detailed evaluation steps, it is still a good idea to take
+initiative and do some evaluation steps so you see the real trends.
+
+The following functions are given, in both Racket and Haskell. (The standard
+libraries already have similar functions under other names, but you need the
+explicit coding to reason about evaluation steps and costs.)
+
+
+Make list of integers from i to n-1:
+```
+(define (fromto i n)
+  (if (< i n)
+      (cons i (fromto (+ i 1) n))
+      '()))
+
+fromto i n = if i < n
+             then i : fromto (i+1) n
+             else []
+```
+
+Get the kth element of a list. We only need the case 0 ≤ k < list length.
+```
+(define (index k xs)
+  (match xs
+    [(cons x xt) (if (equal? k 0)
+                     x
+                     (index (- k 1) xt))]))
+
+index k (x:xt) = if k==0
+                 then x
+                 else index (k-1) xt
+```
+
+
+
+Part (a) [6 marks]
+--------
+
+Let positive integer n≥3 be given. Comparing Racket with Haskell:
+
+How much time (up to big-Theta, e.g., Θ(1)? Θ(sqrt n)? Θ(n)?) does it take to
+evaluate `(index 2 (fromto 0 n))` in Racket?  What is the computer doing to
+take that long?
+
+How much time does it take to evaluate `index 2 (fromto 0 n)` in Haskell?
+What is the computer doing differently, compared to the Racket version?
+
+
+Answer: 
+	Racket:
+	Θ(n)
+	Computer first need to generate the whole list (from 0 n) with the exact value of each elements, this need to recursively call fromto function Θ(n) times, each time append a new element to the list.
+	After the list has been completely built, then in the (index k xs) part, index function will be call recursiively 3 times, eahc time reach to the next element in the list.
+	So together it's Θ(n)
+
+
+	Haskell:
+	Θ(1)
+	Unlike Racket, Haskell uses lazy evaluation. So even through the list has n+1 elements, but haskell won't really generate all elements like Racket. Haskell only generate elements whose value need to be used. In index 2 (fromto 0 n), each recursion of index function, haskell initialize the next element in the list. index function will be call 3 times. So only the first 3 (0,1,2) elements' value will be calculated. 
+	So together it's Θ(1)
+
+
+
+Extra code for Parts (b) and (c)
+--------------------------------
+
+Since Haskell lists are lazy, and we can also emulate lazy lists in Racket, the
+following are possible:
+
+Make infinite lazy list of integers from i onwards:
+```
+(define (from i)
+  (list i (λ () (from (+ i 1)))))
+
+from i = i : from (i+1)	
+```
+
+Get the kth element of an infinite lazy list.
+```
+(define (lzindex k xs)
+  (match xs
+    [(list x xt) (if (equal? k 0)
+                     x
+                     (lzindex (- k 1) (xt)))]))
+
+-- Haskell version of index already works for lazy lists.
+```
+
+
+
+Part (b) [9 marks]
+--------
+
+Let positive integers k and n be given, and k<n.
+
+Comparing Haskell with Racket, and comparing `from` with `fromto` in Haskell:
+
+How much space (up to big-Theta) does it take to evaluate `index k (from 0)` in
+Haskell?  What is the computer storing to take that much space?
+
+How much space does it take to evaluate `(lzindex k (from 0))` in Racket?  What
+is the computer doing differently, compared to the Haskell version?
+
+How much space does it take to evaluate `index k (fromto 0 n)` in Haskell?  What
+is the computer doing differently, compared to `index k (from 0)`?
+
+
+Answer:
+	`index k (from 0)` in Haskell:
+		Θ(k)
+		Computer recursively calls index function k+1 times, each time let 'from' function to move to the next element in the list. The next element is in the form of (previousElement + 1), and the previousElement is in the same form, so each time computer will add a '+1' operation to the equation. By laziness, its value will not be actually evaluated until the last recursion call. In the last recursion when k = 0, there will be a very long equation containing Θ(k) +1's in the thunk to evaluate the value of the kth element in the list. So the space complexity is Θ(k).
+		
+
+	`(lzindex k (from 0))` in Racket:
+		Θ(1)
+		The recursion part is similar with `index k (from 0)` in Haskell.
+		But unlike Haskell, in the list (from 0), when dealing with (previousElement + 1), the value of previousElement is already calculated, and the value of current element will be calculated immediately, no laziness for this part. So Unlike Haskell, it won't carry a continually enlarging equation for calculating the 'previousElement' in the list. So it takes Θ(1) space.
+
+
+	`index k (fromto 0 n)` in Haskell:
+		Θ(1)
+		The recursion part is similar with `index k (from 0)` in Haskell.
+		But in the list (fromto i n), when dealing with previousElement, its value is calculated immediately becuase it's needed for 'if i < n' comparison. Therefore, instead of carrying a continually enlarging equation for calculating the 'previousElement', '(fromto 0 n)' carrys the exact value of each element when moving to the next. So it takes Θ(1) space.		
+
+
+
+Part (c) [2 marks]
+--------
+
+Write an improved implementation of the Haskell version of `from` by using `seq`
+suitably so that `index k (from 0)` stays in Θ(1) space.  You may also add a
+local definition if it helps you use `seq`.
+
+Answer:
+
+	from i = seq i $ i : from (i + 1)
+
+

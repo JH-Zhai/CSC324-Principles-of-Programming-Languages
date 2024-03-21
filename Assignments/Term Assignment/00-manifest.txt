@@ -1,0 +1,7 @@
+The question-answer files (and the filenames to submit) are:
+
+eval.txt
+Treez.hs
+inference.txt
+
+TreezDef.hs is a support file for Treez.hs
